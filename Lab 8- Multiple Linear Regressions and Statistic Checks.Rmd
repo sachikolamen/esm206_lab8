@@ -1,0 +1,164 @@
+---
+title: "Lab 8"
+author: "Sachiko Lamen"
+date: "11/15/2021"
+output: html_document
+---
+
+```{r setup, include = TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(corrplot)
+library(stargazer)
+library(broom)
+library(modelsummary)
+library(here)
+```
+
+## Read in data
+```{r}
+homes <- read_csv(here("data", "slo_homes.csv"))
+
+unique(homes$City) # use unique to see how many different cities there are in the dataset
+```
+
+A littel bit of cleaning:
+Make a subset called homes_sub that only contains ovservations (rows) where the city is:
+- San Luis Obispo
+- Arroyo Grande
+- Atascadero
+-Santa Maria-Orcutt
+
+```{r}
+homes_sub <- homes %>%
+  filter(City %in% c("San Luis Obispo", "Arroyo Grande", "Atascadero", "Santa Maria-Orcutt")) # %in% means: does the city column conatin any of these entries IN this vector
+
+# use unique to confirm that you sorted the data to contain only 4 cities
+unique(homes_sub$City)
+```
+
+## Lets do a little exploring of our data
+
+Summary Statistics for home price based on city and sale status:
+
+- Find and return in a summary table, the mean and std deveiation of home price grouped by city and sales status
+
+```{r, include = FALSE, eval = FALSE}
+# to prevent code from running, set eval = FALSE
+
+homes_sub %>%
+  group_by(Status, City) %>%
+  summarize(mean_price = mean(Price, na.rm = TRUE),
+            sd_price = sd(Price, na.rm = TRUE))
+
+# check summary table to see that it is broken up by city and status
+# before modeling, look at how variables compare to eachother and if you see any trends
+```
+
+## Visualize data
+
+Compare home prices to city
+```{r}
+ggplot(data = homes_sub, aes(x = Price)) +
+  geom_density(aes(color = City, fill = City), alpha = 0.3) + # color and fill are within aes() because they are referring to a variable. Alpha is not referring to a variable, it is a constant. 
+  scale_x_continuous(limits = c(0, 3e6)) # to limit range on graph, use scale_x_continuous()
+```
+Explore teh relationship (visual data exploration) between square footage and home price. Change the point COLOR by City, and the point SHAPE by Status
+
+```{r}
+ggplot(data = homes_sub, aes(x = SqFt, y = Price))+
+  geom_point(aes(color = City, shape = Status)) +
+  geom_smooth(method = lm) # use to create linear model and place on graph
+
+# when you have a point that seems to stray from prediction, think of possible missing variables that would explain the outlier
+```
+
+### Model the relationship with homne price as the dependent variable (outcome variable)
+
+```{r}
+# create saturated model (include very variable in the dataset)
+homes_lm1 <- lm(Price ~ City + Bedrooms + Bathrooms + SqFt + PricePerSqFt + Status, data = homes_sub) # want to find relationship between price and the other variables **be concerned about colinearilty** (ex: Price, SqFt, and PricePerSqFt OR bedrooms, bathrooms, and SqFt kind of all tell you about the size of the house
+
+
+# Make a subset that only contains the quantitative variables
+
+homes_quant <- homes_sub %>%
+  select(Price:PricePerSqFt)
+
+# Use corrplot() to find correlations between different variables and plot them
+homes_cor <- cor(homes_quant)
+homes_cor
+# see that there are a number of moderately or positively correlated values
+
+# make correlation plot
+corrplot(homes_cor, method = 'ellipse')
+
+# Explore diagnostic plots of homes_lm1
+plot(homes_lm1)
+
+```
+
+Try another model where we simplify based on concerns: 
+Only include predictor variables for:
+- City
+- SqFt (think this is a good summary of bedrooms and bathrooms)
+- Status
+
+```{r}
+homes_lm2 <- lm(Price ~ City + SqFt + Status, data = homes_sub)
+  
+plot(homes_lm2)
+
+# Think about model fit, in console: look at summary statistics summary(homes_lm1) v summary(homes_lm2). 
+#For homes_lm1 adjusted R^2 : 84% of the variance in price is explained by the predictor variables (city, bedroom, bathroom, price per square foot, sqft, status) Adjusted R^2 is used instead of multiple R^2 for multiple linear regression because it accounts for the fact that model fit will increase solely as an artifact of adding more variables
+#homes_lm2 has adjusted R^2 of 54%. How do we balance the tradeoff of model fit and model complexity?? AIC!!!
+
+# AIC provides us a comparison of balance between model fit and model complexity
+
+
+```
+Find the AIC value of each model:
+
+```{r}
+AIC(homes_lm1)
+AIC(homes_lm2) 
+# lower AIC indicate a better balance between model fit and complexity
+# this is a huge gap between model1 and model2. Maybe neither model is good. Is there a different model that would work better than these two opitions?
+```
+
+Try another permuation of this model that you think might make sense, check out and compare the model fit, outputs, and AIC value.
+
+```{r}
+homes_lm3 <- lm(Price ~ Status + Bedrooms + Bathrooms + City, data = homes_sub)
+
+summary(homes_lm3)
+
+plot(homes_lm3)
+
+AIC(homes_lm3)
+
+```
+
+To compare models side by side, use `modelsummary` ** can use on a single model or on multiple models ** IF you use 'modelsummary' to return model outputs of multiple models, it wants you to feed it to it as a list
+```{r}
+modelsummary(list(homes_lm1, homes_lm2, homes_lm3))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
