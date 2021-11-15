@@ -145,6 +145,17 @@ To compare models side by side, use `modelsummary` ** can use on a single model 
 modelsummary(list(homes_lm1, homes_lm2, homes_lm3))
 
 ```
+## Start making predicitions with this model
+
+Use `broom::augment()` to show what values are for predicted value of the dependent variable for each observation
+
+```{r}
+homes_predicted <- augment(homes_lm1)
+```
+
+You can use the `predict()` function to try out your model on new scenariaos that you create.
+
+# SCOOPITY POOPITY, POOPITY SCOOPITY
 
 
 
